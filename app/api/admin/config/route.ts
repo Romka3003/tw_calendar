@@ -26,12 +26,14 @@ export async function GET() {
       allDesks.push({ id: allDesks.length + 1, name: `Стол ${allDesks.length + 1}` });
     }
     const desks = allDesks.slice(0, numDesks);
-    return NextResponse.json({
+    const response = NextResponse.json({
       teamMembers,
       numDesks,
       desks,
       demo,
     });
+    response.headers.set("Cache-Control", "no-store, max-age=0");
+    return response;
   } catch (e) {
     console.error("GET /api/admin/config", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

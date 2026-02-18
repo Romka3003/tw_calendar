@@ -20,7 +20,7 @@ export default function AdminPage() {
   const fetchConfig = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/config");
+      const res = await fetch("/api/admin/config", { cache: "no-store" });
       const data = await res.json();
       if (res.ok) {
         setTeamMembers(data.teamMembers ?? []);
@@ -60,7 +60,7 @@ export default function AdminPage() {
         showMsg("ok", "Участник добавлен");
         setNewName("");
         setNewDesiredDays(2);
-        fetchConfig();
+        await fetchConfig();
       } else {
         showMsg("err", data.error || "Ошибка");
       }

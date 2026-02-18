@@ -31,8 +31,10 @@ export async function getTeamMembersFromDb(): Promise<TeamMemberRow[]> {
     const r = await sql<{ id: number; name: string; desired_days: number }>`
       SELECT id, name, desired_days FROM team_members ORDER BY id
     `;
-    return r.rows;
-  } catch {
+    const rows = (r as { rows?: TeamMemberRow[] }).rows;
+    return Array.isArray(rows) ? rows : [];
+  } catch (e) {
+    console.error("[getTeamMembersFromDb]", e);
     return [];
   }
 }

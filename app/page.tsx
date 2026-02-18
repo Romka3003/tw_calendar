@@ -32,7 +32,8 @@ export default function Home() {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/week?tzOffsetMinutes=${encodeURIComponent(tzOffsetMinutes)}`
+        `/api/week?tzOffsetMinutes=${encodeURIComponent(tzOffsetMinutes)}`,
+        { cache: "no-store" }
       );
       if (!res.ok) throw new Error("Ошибка загрузки");
       const data: WeekData = await res.json();

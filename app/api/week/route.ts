@@ -42,13 +42,15 @@ export async function GET(request: NextRequest) {
       bookedCount: getBookedCountForMember(m.name, bookings),
     }));
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       dates,
       desks,
       bookings: bookingsList,
       teamMembers,
       demo,
     });
+    response.headers.set("Cache-Control", "no-store, max-age=0");
+    return response;
   } catch (e) {
     console.error("GET /api/week", e);
     return NextResponse.json(
