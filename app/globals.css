@@ -2,22 +2,152 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* vas3k.club style: theme variables */
+:root,
+html[data-theme="light"] {
+  --vas3k-bg: #fcfdff;
+  --vas3k-text: #333;
+  --vas3k-text-bright: #000;
+  --vas3k-block-bg: #fff;
+  --vas3k-block-shadow: 10px 15px 40px rgba(83, 91, 110, 0.11);
+  --vas3k-block-border: none;
+  --vas3k-border-radius: 15px;
+  --vas3k-button-bg: #333;
+  --vas3k-button-color: #fff;
+  --vas3k-button-border: 2px solid #333;
+  --vas3k-button-hover-bg: #fff;
+  --vas3k-button-hover-color: #333;
+  --vas3k-input-bg: #fff;
+  --vas3k-input-color: #000;
+  --vas3k-input-border: #ddd;
+  --slot-free-bg: rgba(83, 170, 104, 0.25);
+  --slot-free-text: #2d5a38;
+}
+
+html[data-theme="dark"] {
+  --vas3k-bg: #282c35;
+  --vas3k-text: #ddd;
+  --vas3k-text-bright: #fff;
+  --vas3k-block-bg: #1b1b1c;
+  --vas3k-block-shadow: 0 0 0 #000;
+  --vas3k-block-border: 1px solid #fcfdff;
+  --vas3k-button-bg: #fff;
+  --vas3k-button-color: #333;
+  --vas3k-button-border: 2px solid #fff;
+  --vas3k-button-hover-bg: #333;
+  --vas3k-button-hover-color: #fff;
+  --vas3k-input-bg: #373c48;
+  --vas3k-input-color: #fff;
+  --vas3k-input-border: #333;
+  --slot-free-bg: rgba(83, 170, 104, 0.28);
+  --slot-free-text: #a8e6b8;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  html:not([data-theme]) {
+    --vas3k-bg: #282c35;
+    --vas3k-text: #ddd;
+    --vas3k-text-bright: #fff;
+    --vas3k-block-bg: #1b1b1c;
+    --vas3k-block-shadow: 0 0 0 #000;
+    --vas3k-block-border: 1px solid #fcfdff;
+    --vas3k-button-bg: #fff;
+    --vas3k-button-color: #333;
+    --vas3k-button-border: 2px solid #fff;
+    --vas3k-button-hover-bg: #333;
+    --vas3k-button-hover-color: #fff;
+  --vas3k-input-bg: #373c48;
+  --vas3k-input-color: #fff;
+  --vas3k-input-border: #333;
+  --slot-free-bg: rgba(83, 170, 104, 0.28);
+  --slot-free-text: #a8e6b8;
   }
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Helvetica, Verdana, sans-serif;
+  font-size: 15px;
+  line-height: 1.42;
+  color: var(--vas3k-text);
+  background-color: var(--vas3k-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* vas3k .button */
+.btn-vas3k {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px 18px;
+  border-radius: var(--vas3k-border-radius);
+  background-color: var(--vas3k-button-bg);
+  border: var(--vas3k-button-border);
+  color: var(--vas3k-button-color);
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.2s ease-out;
+}
+.btn-vas3k:hover {
+  background-color: var(--vas3k-button-hover-bg);
+  color: var(--vas3k-button-hover-color);
+  border: var(--vas3k-button-border);
+}
+.btn-vas3k:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* theme switcher (vas3k .theme-switcher) */
+.theme-switcher {
+  display: inline-block;
+  height: 34px;
+  position: relative;
+  width: 60px;
+}
+.theme-switcher input {
+  display: none;
+}
+.theme-switcher .slider {
+  display: block;
+  background-color: #000;
+  bottom: 0;
+  cursor: pointer;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  transition: 0.4s;
+  border-radius: 34px;
+}
+.theme-switcher .slider::before {
+  background-color: #fff;
+  bottom: 4px;
+  content: "";
+  height: 26px;
+  left: 4px;
+  position: absolute;
+  transition: 0.4s;
+  width: 26px;
+  border-radius: 50%;
+}
+.theme-switcher .slider::after {
+  content: "🌙";
+  display: block;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 6px;
+  font-size: 14px;
+}
+.theme-switcher input:checked + .slider::after {
+  content: "☀️";
+  right: auto;
+  left: 6px;
+  font-size: 16px;
+}
+.theme-switcher input:checked + .slider::before {
+  transform: translateX(26px);
 }
 
 @layer utilities {

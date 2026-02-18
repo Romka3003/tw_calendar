@@ -1,101 +1,180 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { DeskWeekGrid, type BookingEntry } from "@/components/DeskWeekGrid";
+import { TeamSidebar } from "@/components/TeamSidebar";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+
+type TeamMemberRow = {
+  name: string;
+  desiredDays: number;
+  bookedCount: number;
+};
+
+type WeekData = {
+  dates: string[];
+  desks: { id: number; name: string }[];
+  bookings: BookingEntry[];
+  teamMembers: TeamMemberRow[];
+  demo?: boolean;
+};
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [weekData, setWeekData] = useState<WeekData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const tzOffsetMinutes =
+    typeof window !== "undefined" ? new Date().getTimezoneOffset() : 0;
+
+  const fetchWeek = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/week?tzOffsetMinutes=${encodeURIComponent(tzOffsetMinutes)}`
+      );
+      if (!res.ok) throw new Error("Ошибка загрузки");
+      const data: WeekData = await res.json();
+      setWeekData(data);
+    } catch {
+      setMessage({ type: "err", text: "Не удалось загрузить данные" });
+    } finally {
+      setLoading(false);
+    }
+  }, [tzOffsetMinutes]);
+
+  useEffect(() => {
+    fetchWeek();
+  }, [fetchWeek]);
+
+  const showMessage = (type: "ok" | "err", text: string) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const handleBook = async (deskId: number, date: string, bookedBy: string) => {
+    try {
+      const res = await fetch("/api/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deskId,
+          date,
+          bookedBy,
+          note: null,
+          tzOffsetMinutes,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        showMessage("ok", "Забронировано");
+        fetchWeek();
+      } else if (res.status === 409) {
+        showMessage("err", "Уже занято");
+        fetchWeek();
+      } else {
+        showMessage("err", data.error || "Ошибка");
+        fetchWeek();
+      }
+    } catch {
+      showMessage("err", "Ошибка сети");
+      fetchWeek();
+    }
+  };
+
+  const handleUnbook = async (deskId: number, date: string, bookedBy: string) => {
+    try {
+      const res = await fetch("/api/unbook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deskId, date, bookedBy }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        showMessage("ok", "Бронь снята");
+        fetchWeek();
+      } else {
+        showMessage("err", data.error || "Ошибка");
+        fetchWeek();
+      }
+    } catch {
+      showMessage("err", "Ошибка сети");
+      fetchWeek();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-vas3k-bg">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold text-[var(--vas3k-text-bright)]">
+              Бронирование столов
+            </h1>
+            {weekData?.demo && (
+              <span
+                className="rounded px-2 py-0.5 text-sm"
+                style={{ backgroundColor: "rgba(255, 196, 85, 0.91)", color: "#333" }}
+              >
+                Демо
+              </span>
+            )}
+          </div>
+          <ThemeSwitcher />
+        </header>
+
+        {loading ? (
+          <p className="text-[var(--vas3k-text)] opacity-80">Загрузка…</p>
+        ) : weekData ? (
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <div
+              className="min-w-0 flex-1 rounded-vas3k p-6 shadow-vas3k"
+              style={{
+                backgroundColor: "var(--vas3k-block-bg)",
+                border: "var(--vas3k-block-border)",
+              }}
+            >
+              <DeskWeekGrid
+                dates={weekData.dates}
+                desks={weekData.desks}
+                bookings={weekData.bookings}
+                teamNames={weekData.teamMembers.map((m) => m.name)}
+                onBook={handleBook}
+                onUnbook={handleUnbook}
+              />
+            </div>
+            <div className="w-full min-w-0 shrink-0 lg:w-[22rem]">
+              <TeamSidebar members={weekData.teamMembers} />
+            </div>
+          </div>
+        ) : (
+          <p className="text-[var(--vas3k-text)] opacity-80">
+            Нет данных. Проверьте подключение к БД.
+          </p>
+        )}
+
+        <div
+          className="min-h-[2.75rem] py-2"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {message && (
+            <div
+              role="alert"
+              className="rounded-vas3k px-4 py-2 text-sm"
+              style={{
+                backgroundColor:
+                  message.type === "ok"
+                    ? "rgba(83, 170, 104, 0.25)"
+                    : "rgba(255, 25, 23, 0.15)",
+                color: "var(--vas3k-text-bright)",
+              }}
+            >
+              {message.text}
+            </div>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
   );
 }
