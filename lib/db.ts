@@ -27,15 +27,30 @@ const MAX_DESKS = 12;
 
 // --- Админка: загрузка из БД (при !isDemoMode) ---
 export async function getTeamMembersFromDb(): Promise<TeamMemberRow[]> {
+  const { members } = await getTeamMembersFromDbWithError();
+  return members;
+}
+
+/** Для отладки: возвращает список и текст ошибки (если был). */
+export async function getTeamMembersFromDbWithError(): Promise<{
+  members: TeamMemberRow[];
+  error?: string;
+}> {
   try {
     const r = await sql<{ id: number; name: string; desired_days: number }>`
       SELECT id, name, desired_days FROM team_members ORDER BY id
     `;
-    const rows = (r as { rows?: TeamMemberRow[] }).rows;
-    return Array.isArray(rows) ? rows : [];
+    // @vercel/postgres с fullResults даёт .rows; иногда драйвер возвращает массив напрямую
+    const withRows = r as { rows?: TeamMemberRow[] };
+    const members =
+      Array.isArray(withRows.rows) ? withRows.rows
+      : Array.isArray(r) ? (r as unknown as TeamMemberRow[])
+      : [];
+    return { members };
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error("[getTeamMembersFromDb]", e);
-    return [];
+    return { members: [], error: msg };
   }
 }
 
