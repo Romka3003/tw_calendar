@@ -60,7 +60,12 @@ export default function AdminPage() {
         showMsg("ok", "Участник добавлен");
         setNewName("");
         setNewDesiredDays(2);
-        await fetchConfig();
+        // Список из того же запроса (то же подключение к БД) — всегда актуален
+        if (Array.isArray(data.teamMembers)) {
+          setTeamMembers(data.teamMembers);
+        } else {
+          await fetchConfig();
+        }
       } else {
         showMsg("err", data.error || "Ошибка");
       }

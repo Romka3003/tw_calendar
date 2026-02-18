@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isDemoMode, addTeamMemberToDb } from "@/lib/db";
+import { isDemoMode, addTeamMemberToDb, getTeamMembersFromDbWithError } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,9 @@ export async function POST(request: NextRequest) {
     }
     const row = await addTeamMemberToDb(name, desiredDays);
     if (!row) return NextResponse.json({ error: "Не удалось добавить" }, { status: 500 });
-    return NextResponse.json({ id: row.id });
+    // В том же запросе загружаем список — то же подключение, список гарантированно виден
+    const { members: teamMembers } = await getTeamMembersFromDbWithError();
+    return NextResponse.json({ id: row.id, teamMembers });
   } catch (e) {
     console.error("POST /api/admin/team", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
