@@ -1,4 +1,15 @@
-import { sql } from "@vercel/postgres";
+import postgres from "postgres";
+
+/** Один клиент с явным POSTGRES_URL — работает с Supabase, Neon, Railway и любым Postgres. */
+let sql: ReturnType<typeof postgres> | null = null;
+function getSql() {
+  if (!sql) {
+    const url = process.env.POSTGRES_URL;
+    if (!url) throw new Error("POSTGRES_URL is not set");
+    sql = postgres(url, { max: 1 });
+  }
+  return sql;
+}
 
 export const DESK_IDS = [1, 2, 3, 4, 5, 6] as const;
 export type DeskId = (typeof DESK_IDS)[number];
@@ -25,6 +36,11 @@ export interface TeamMemberRow {
 
 const MAX_DESKS = 12;
 
+// postgres.js возвращает массив строк напрямую (не { rows })
+function asRows<T>(r: T[] | { rows?: T[] }): T[] {
+  return Array.isArray(r) ? r : (r as { rows?: T[] }).rows ?? [];
+}
+
 // --- Админка: загрузка из БД (при !isDemoMode) ---
 export async function getTeamMembersFromDb(): Promise<TeamMemberRow[]> {
   const { members } = await getTeamMembersFromDbWithError();
@@ -37,15 +53,8 @@ export async function getTeamMembersFromDbWithError(): Promise<{
   error?: string;
 }> {
   try {
-    const r = await sql<{ id: number; name: string; desired_days: number }>`
-      SELECT id, name, desired_days FROM team_members ORDER BY id
-    `;
-    // @vercel/postgres с fullResults даёт .rows; иногда драйвер возвращает массив напрямую
-    const withRows = r as { rows?: TeamMemberRow[] };
-    const members =
-      Array.isArray(withRows.rows) ? withRows.rows
-      : Array.isArray(r) ? (r as unknown as TeamMemberRow[])
-      : [];
+    const r = await getSql()`SELECT id, name, desired_days FROM team_members ORDER BY id`;
+    const members = asRows<TeamMemberRow>(r as unknown as TeamMemberRow[]);
     return { members };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -56,8 +65,9 @@ export async function getTeamMembersFromDbWithError(): Promise<{
 
 export async function getNumDesksFromDb(): Promise<number> {
   try {
-    const r = await sql<{ value: string }>`SELECT value FROM settings WHERE key = 'num_desks'`;
-    const v = r.rows[0]?.value;
+    const r = await getSql()`SELECT value FROM settings WHERE key = 'num_desks'`;
+    const rows = asRows<{ value: string }>(r as unknown as { value: string }[]);
+    const v = rows[0]?.value;
     const n = parseInt(v ?? "6", 10);
     return Math.min(MAX_DESKS, Math.max(1, isNaN(n) ? 6 : n));
   } catch {
@@ -68,10 +78,8 @@ export async function getNumDesksFromDb(): Promise<number> {
 export async function getDesksFromDb(): Promise<Desk[]> {
   try {
     const num = await getNumDesksFromDb();
-    const r = await sql<{ id: number; name: string }>`
-      SELECT id, name FROM desks WHERE id <= ${num} ORDER BY id
-    `;
-    return r.rows;
+    const r = await getSql()`SELECT id, name FROM desks WHERE id <= ${num} ORDER BY id`;
+    return asRows<Desk>(r as unknown as Desk[]);
   } catch {
     return DESKS;
   }
@@ -79,22 +87,21 @@ export async function getDesksFromDb(): Promise<Desk[]> {
 
 export async function setNumDesksAndNames(numDesks: number, names: { id: number; name: string }[]): Promise<void> {
   const n = Math.min(MAX_DESKS, Math.max(1, numDesks));
-  await sql`UPDATE settings SET value = ${String(n)} WHERE key = 'num_desks'`;
+  await getSql()`UPDATE settings SET value = ${String(n)} WHERE key = 'num_desks'`;
   const nameMap = new Map(names.map((d) => [d.id, d.name]));
   for (let id = 1; id <= n; id++) {
     const name = nameMap.get(id) ?? `Стол ${id}`;
-    await sql`INSERT INTO desks (id, name) VALUES (${id}, ${name})
+    await getSql()`INSERT INTO desks (id, name) VALUES (${id}, ${name})
       ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`;
   }
 }
 
 export async function addTeamMemberToDb(name: string, desiredDays: number): Promise<{ id: number } | null> {
   try {
-    const r = await sql<{ id: number }>`
-      INSERT INTO team_members (name, desired_days) VALUES (${name.trim()}, ${desiredDays})
-      RETURNING id
-    `;
-    return r.rows[0] ?? null;
+    const r = await getSql()`INSERT INTO team_members (name, desired_days) VALUES (${name.trim()}, ${desiredDays})
+      RETURNING id`;
+    const rows = asRows<{ id: number }>(r as unknown as { id: number }[]);
+    return rows[0] ?? null;
   } catch {
     return null;
   }
@@ -103,10 +110,10 @@ export async function addTeamMemberToDb(name: string, desiredDays: number): Prom
 export async function updateTeamMemberInDb(id: number, data: { name?: string; desired_days?: number }): Promise<boolean> {
   try {
     if (data.name !== undefined) {
-      await sql`UPDATE team_members SET name = ${data.name.trim()} WHERE id = ${id}`;
+      await getSql()`UPDATE team_members SET name = ${data.name.trim()} WHERE id = ${id}`;
     }
     if (data.desired_days !== undefined) {
-      await sql`UPDATE team_members SET desired_days = ${data.desired_days} WHERE id = ${id}`;
+      await getSql()`UPDATE team_members SET desired_days = ${data.desired_days} WHERE id = ${id}`;
     }
     return true;
   } catch {
@@ -116,8 +123,9 @@ export async function updateTeamMemberInDb(id: number, data: { name?: string; de
 
 export async function deleteTeamMemberFromDb(id: number): Promise<boolean> {
   try {
-    const r = await sql`DELETE FROM team_members WHERE id = ${id} RETURNING id`;
-    return (r.rowCount ?? 0) > 0;
+    const r = await getSql()`DELETE FROM team_members WHERE id = ${id} RETURNING id`;
+    const rows = asRows<{ id: number }>(r as unknown as { id: number }[]);
+    return rows.length > 0;
   } catch {
     return false;
   }
@@ -125,8 +133,8 @@ export async function deleteTeamMemberFromDb(id: number): Promise<boolean> {
 
 export async function getAllDesksFromDb(): Promise<Desk[]> {
   try {
-    const r = await sql<{ id: number; name: string }>`SELECT id, name FROM desks ORDER BY id`;
-    return r.rows;
+    const r = await getSql()`SELECT id, name FROM desks ORDER BY id`;
+    return asRows<Desk>(r as unknown as Desk[]);
   } catch {
     return Array.from({ length: 12 }, (_, i) => ({ id: i + 1, name: `Стол ${i + 1}` }));
   }
@@ -193,15 +201,14 @@ export async function getBookingsForDates(dates: string[]): Promise<Booking[]> {
   }
   const start = dates[0];
   const end = dates[dates.length - 1];
-  const result = await sql<{ desk_id: number; date: string | Date; booked_by: string; note: string | null }>`
-    SELECT desk_id, date, booked_by, note
+  const result = await getSql()`SELECT desk_id, date, booked_by, note
     FROM bookings
     WHERE date >= ${start}::date AND date <= ${end}::date
-    ORDER BY date, desk_id
-  `;
+    ORDER BY date, desk_id`;
+  const rows = asRows<{ desk_id: number; date: string | Date; booked_by: string; note: string | null }>(result as unknown as never[]);
   const toDateOnly = (d: string | Date): string =>
-    typeof d === "string" ? d.slice(0, 10) : d.toISOString().slice(0, 10);
-  return result.rows.map((r) => ({
+    typeof d === "string" ? d.slice(0, 10) : (d as Date).toISOString().slice(0, 10);
+  return rows.map((r) => ({
     desk_id: r.desk_id,
     date: toDateOnly(r.date),
     booked_by: r.booked_by,
@@ -221,13 +228,12 @@ export async function createBooking(
     demoStore.set(key, { desk_id: deskId, date, booked_by: bookedBy, note });
     return { ok: true };
   }
-  const result = await sql`
-    INSERT INTO bookings (desk_id, date, booked_by, note)
+  const result = await getSql()`INSERT INTO bookings (desk_id, date, booked_by, note)
     VALUES (${deskId}, ${date}::date, ${bookedBy}, ${note ?? null})
     ON CONFLICT (desk_id, date) DO NOTHING
-    RETURNING id
-  `;
-  return { ok: result.rowCount === 1 };
+    RETURNING id`;
+  const rows = asRows<{ id: number }>(result as unknown as { id: number }[]);
+  return { ok: rows.length === 1 };
 }
 
 export async function deleteBooking(
@@ -242,10 +248,9 @@ export async function deleteBooking(
     demoStore.delete(key);
     return { deleted: true };
   }
-  const result = await sql`
-    DELETE FROM bookings
+  const result = await getSql()`DELETE FROM bookings
     WHERE desk_id = ${deskId} AND date = ${date}::date AND booked_by = ${bookedBy}
-    RETURNING id
-  `;
-  return { deleted: result.rowCount === 1 };
+    RETURNING id`;
+  const rows = asRows<{ id: number }>(result as unknown as { id: number }[]);
+  return { deleted: rows.length === 1 };
 }

@@ -6,8 +6,85 @@
 
 - **Next.js 14** (App Router) + TypeScript
 - **TailwindCSS**
-- **БД:** Neon (Postgres), free tier — встроенная интеграция с Vercel
+- **БД:** Postgres (Supabase через Vercel, Neon, Railway или любой по `POSTGRES_URL`)
 - Деплой: **Vercel**
+
+## БД: Supabase, Neon или Railway
+
+Приложение подключается к Postgres по переменной `POSTGRES_URL` через драйвер [postgres.js](https://github.com/porsager/postgres) (работает с Supabase, Neon, Railway и любым Postgres).
+
+---
+
+### Вариант: Supabase через Vercel (рекомендуется)
+
+Supabase — это Postgres с удобным интерфейсом. При подключении через Vercel переменная **`POSTGRES_URL`** подставляется автоматически, код менять не нужно.
+
+#### 1. Добавить Supabase через Vercel
+
+1. Откройте [Vercel](https://vercel.com) → ваш проект (например, twcalendar).
+2. **Settings** → **Integrations** (или **Storage** в боковом меню).
+3. **Browse Marketplace** / **Add Integration** → найдите **Supabase** → **Add** / **Install**.
+4. Разрешите доступ и выберите проект, к которому подключать БД.
+5. Создайте **новый** Supabase-проект (Create new project) или подключите существующий (Link existing).
+6. После подключения Vercel автоматически добавит в проект переменные: **`POSTGRES_URL`**, `POSTGRES_URL_NON_POOLING`, `SUPABASE_URL` и др. Наше приложение использует **`POSTGRES_URL`** — она уже будет задана.
+
+#### 2. Открыть Supabase Studio и выполнить SQL
+
+1. В Vercel в разделе интеграции Supabase (или **Storage** → ваш Supabase) нажмите **Open in Supabase** / **Supabase Studio** — откроется дашборд Supabase.
+2. В Supabase: **SQL Editor** (левое меню).
+3. Выполните по очереди:
+   - вставьте содержимое файла **`sql/init.sql`** → **Run**;
+   - вставьте содержимое файла **`sql/migrate_admin.sql`** → **Run**.
+4. Таблицы `bookings`, `desks`, `settings`, `team_members` будут созданы.
+
+#### 3. Редеплой (если переменные только что подставились)
+
+1. В Vercel: **Deployments** → у последнего деплоя ⋮ → **Redeploy**.
+2. После деплоя админка и главная страница будут работать с Supabase.
+
+Локально можно подтянуть переменные: `vercel env pull .env.local` (в корне проекта).
+
+---
+
+### Вариант: Railway (Postgres)
+
+[Railway](https://railway.app) даёт Postgres с простым подключением извне (Vercel, локально).
+
+#### 1. Создание БД в Railway
+
+1. Зайдите на [railway.app](https://railway.app), войдите (через GitHub можно).
+2. **New Project** → выберите **Deploy from template** или **Empty Project**.
+3. В проекте нажмите **+ New** → **Database** → **PostgreSQL** (или найдите шаблон [PostgreSQL](https://railway.com/template/postgres)).
+4. Дождитесь деплоя сервиса Postgres (иконка слоника).
+
+#### 2. Получение connection string
+
+1. Откройте сервис **PostgreSQL** (клик по блоку).
+2. Вкладка **Variables** (или **Connect**). Там будут переменные:
+   - **`DATABASE_URL`** или **`DATABASE_PUBLIC_URL`** — для подключения снаружи (Vercel, локально) нужен **публичный** URL. Если есть `DATABASE_PUBLIC_URL` — копируйте его; если только `DATABASE_URL` — скопируйте его (для внешнего доступа Railway включает TCP Proxy).
+   - При необходимости нажмите **Connect** / **Public URL** и скопируйте строку вида:  
+     `postgresql://postgres:PASSWORD@host.railway.app:PORT/railway`
+3. Формат: `postgresql://user:password@host:port/railway` (часто с `?sslmode=require` или без — приложение подставит при необходимости).
+
+#### 3. Подключение к Vercel
+
+1. В [Vercel](https://vercel.com) откройте проект → **Settings** → **Environment Variables**.
+2. Добавьте или измените переменную:
+   - **Name:** `POSTGRES_URL`
+   - **Value:** вставьте скопированный connection string из Railway.
+3. Сохраните и сделайте **Redeploy** проекта.
+
+#### 4. Инициализация таблиц в Railway
+
+1. В Railway откройте сервис Postgres → вкладка **Data** или **Query** (или **Connect** → открыть в клиенте).
+2. Если есть **SQL-консоль** в Railway — выполните там по очереди:
+   - сначала содержимое `sql/init.sql`;
+   - затем содержимое `sql/migrate_admin.sql`.
+3. Если SQL-консоли нет — подключитесь локально по тому же connection string (например, через [pgAdmin](https://www.pgadmin.org/), [DBeaver](https://dbeaver.io/) или `psql`) и выполните оба файла.
+
+После этого приложение на Vercel будет использовать Railway как БД.
+
+---
 
 ## БД: Neon (free)
 
