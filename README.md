@@ -6,8 +6,36 @@
 
 - **Next.js 14** (App Router) + TypeScript
 - **TailwindCSS**
-- **Vercel Postgres** (Neon) через `@vercel/postgres`
+- **БД:** Neon (Postgres), free tier — встроенная интеграция с Vercel
 - Деплой: **Vercel**
+
+## БД: Neon (free)
+
+[Neon](https://neon.tech) даёт бесплатный Postgres и удобно подключается к Vercel.
+
+### Создание БД в Neon
+
+1. Зайдите на [neon.tech](https://neon.tech) и войдите (через GitHub можно).
+2. **New Project** → укажите имя (например `desk-booking`) и регион.
+3. После создания откройте проект → вкладка **Dashboard** или **Connection details**.
+4. Скопируйте **Connection string**. Для Vercel (serverless) используйте **Pooled connection** — обычно кнопка «Pooled» или строка с `-pooler` в хосте. Формат:  
+   `postgresql://user:password@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require`
+
+### Подключение к Vercel
+
+1. В [Vercel](https://vercel.com) откройте ваш проект (деплой из GitHub).
+2. **Settings** → **Environment Variables**.
+3. Добавьте переменную:
+   - **Name:** `POSTGRES_URL`
+   - **Value:** вставьте скопированный connection string из Neon (pooled).
+4. Сохраните и сделайте **Redeploy** проекта.
+
+### Инициализация таблиц в Neon
+
+1. В Neon откройте проект → **SQL Editor**.
+2. Выполните один раз содержимое файла `sql/init.sql` (см. раздел «Инициализация БД» ниже).
+
+После этого приложение на Vercel будет сохранять брони в Neon.
 
 ## Локальный запуск
 
@@ -29,24 +57,15 @@ npm run dev
 
 Откройте [http://localhost:3000](http://localhost:3000).
 
-## Переменные окружения (Vercel Postgres)
+## Переменные окружения
 
-При использовании **Vercel Postgres** в проекте Vercel подключается хранилище Postgres (Neon). В локальной разработке нужны те же переменные в `.env.local`:
+- **`POSTGRES_URL`** — connection string из Neon (обязательно **pooled** для Vercel/serverless).
 
-- `POSTGRES_URL` — URL подключения (pool)
-- `POSTGRES_URL_NON_POOLING` — URL прямого подключения (опционально, для миграций)
-
-Получить их можно так:
-
-1. В [Vercel Dashboard](https://vercel.com) откройте проект.
-2. **Storage** → создайте или выберите **Postgres** (Vercel Postgres / Neon).
-3. Подключите хранилище к проекту — переменные появятся в **Settings → Environment Variables**.
-
-Для локального запуска скопируйте `POSTGRES_URL` и при необходимости `POSTGRES_URL_NON_POOLING` в `.env.local`.
+Локально: создайте `.env.local` и добавьте туда `POSTGRES_URL` со значением из Neon (тот же pooled URL). Без этой переменной приложение работает в **демо-режиме** (данные в памяти).
 
 ## Инициализация БД
 
-Выполните SQL один раз (через Vercel Dashboard → Storage → ваша БД → Query, или через `psql` по `POSTGRES_URL`):
+Выполните SQL один раз в **Neon** (SQL Editor) или через `psql` по `POSTGRES_URL`:
 
 ```sql
 -- Файл: sql/init.sql
@@ -68,17 +87,15 @@ CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings (date);
 
 ## Деплой на Vercel
 
-1. Залейте проект в Git (GitHub, GitLab, Bitbucket).
+1. Импортируйте репозиторий в [vercel.com](https://vercel.com): **Add New Project** → выберите репозиторий.
 
-2. В [vercel.com](https://vercel.com): **Add New Project** → импортируйте репозиторий.
+2. Подключите БД **Neon** (см. раздел «БД: Neon (free)» выше):
+   - Создайте проект в [neon.tech](https://neon.tech), скопируйте **pooled** connection string.
+   - В Vercel: **Settings** → **Environment Variables** → добавьте `POSTGRES_URL`.
 
-3. Подключите **Vercel Postgres**:
-   - В проекте: **Storage** → **Create Database** → **Postgres**.
-   - Подключите созданную БД к проекту (переменные `POSTGRES_*` подставятся автоматически).
+3. В Neon выполните SQL инициализации (раздел «Инициализация БД»).
 
-4. Выполните SQL инициализации (см. выше) в консоли вашей БД в Vercel/Neon.
-
-5. Деплой: **Deploy**. После сборки приложение будет доступно по URL вида `https://ваш-проект.vercel.app`.
+4. **Deploy** (или Redeploy). Приложение будет доступно по ссылке вида `https://ваш-проект.vercel.app`.
 
 ## API
 

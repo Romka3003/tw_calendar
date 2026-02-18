@@ -78,13 +78,20 @@ export async function getBookingsForDates(dates: string[]): Promise<Booking[]> {
   }
   const start = dates[0];
   const end = dates[dates.length - 1];
-  const result = await sql<Booking>`
-    SELECT desk_id, date::text, booked_by, note
+  const result = await sql<{ desk_id: number; date: string | Date; booked_by: string; note: string | null }>`
+    SELECT desk_id, date, booked_by, note
     FROM bookings
     WHERE date >= ${start}::date AND date <= ${end}::date
     ORDER BY date, desk_id
   `;
-  return result.rows;
+  const toDateOnly = (d: string | Date): string =>
+    typeof d === "string" ? d.slice(0, 10) : d.toISOString().slice(0, 10);
+  return result.rows.map((r) => ({
+    desk_id: r.desk_id,
+    date: toDateOnly(r.date),
+    booked_by: r.booked_by,
+    note: r.note,
+  }));
 }
 
 export async function createBooking(

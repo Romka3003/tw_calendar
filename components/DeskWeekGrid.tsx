@@ -52,8 +52,10 @@ export function DeskWeekGrid({
 
   const bookingMap = useMemo(() => {
     const map = new Map<string, BookingEntry>();
+    const toKey = (d: string) => (d.length >= 10 ? d.slice(0, 10) : d);
     for (const b of bookings) {
-      map.set(`${b.desk_id}-${b.date}`, b);
+      const dateKey = toKey(b.date);
+      map.set(`${b.desk_id}-${dateKey}`, { ...b, date: dateKey });
     }
     return map;
   }, [bookings]);

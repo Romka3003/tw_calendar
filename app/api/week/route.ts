@@ -16,9 +16,11 @@ export async function GET(request: NextRequest) {
     }
     const dates = getWorkWeekDates(tzOffsetMinutes);
     const bookings = await getBookingsForDates(dates);
+    const toDateOnly = (d: string | Date) =>
+      typeof d === "string" ? d.slice(0, 10) : (d as Date).toISOString().slice(0, 10);
     const bookingsList = bookings.map((b) => ({
       desk_id: b.desk_id,
-      date: b.date,
+      date: toDateOnly(b.date),
       booked_by: b.booked_by,
       note: b.note,
     }));
