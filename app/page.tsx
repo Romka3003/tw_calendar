@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DeskWeekGrid, type BookingEntry } from "@/components/DeskWeekGrid";
 import { TeamSidebar } from "@/components/TeamSidebar";
+import Link from "next/link";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 type TeamMemberRow = {
@@ -120,7 +121,15 @@ export default function Home() {
               </span>
             )}
           </div>
-          <ThemeSwitcher />
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin"
+              className="text-sm text-[var(--vas3k-text)] underline hover:no-underline"
+            >
+              Настройки
+            </Link>
+            <ThemeSwitcher />
+          </div>
         </header>
 
         {loading ? (

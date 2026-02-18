@@ -17,6 +17,104 @@ export interface Booking {
 
 export const DESKS: Desk[] = DESK_IDS.map((id) => ({ id, name: `Стол ${id}` }));
 
+export interface TeamMemberRow {
+  id: number;
+  name: string;
+  desired_days: number;
+}
+
+const MAX_DESKS = 12;
+
+// --- Админка: загрузка из БД (при !isDemoMode) ---
+export async function getTeamMembersFromDb(): Promise<TeamMemberRow[]> {
+  try {
+    const r = await sql<{ id: number; name: string; desired_days: number }>`
+      SELECT id, name, desired_days FROM team_members ORDER BY id
+    `;
+    return r.rows;
+  } catch {
+    return [];
+  }
+}
+
+export async function getNumDesksFromDb(): Promise<number> {
+  try {
+    const r = await sql<{ value: string }>`SELECT value FROM settings WHERE key = 'num_desks'`;
+    const v = r.rows[0]?.value;
+    const n = parseInt(v ?? "6", 10);
+    return Math.min(MAX_DESKS, Math.max(1, isNaN(n) ? 6 : n));
+  } catch {
+    return 6;
+  }
+}
+
+export async function getDesksFromDb(): Promise<Desk[]> {
+  try {
+    const num = await getNumDesksFromDb();
+    const r = await sql<{ id: number; name: string }>`
+      SELECT id, name FROM desks WHERE id <= ${num} ORDER BY id
+    `;
+    return r.rows;
+  } catch {
+    return DESKS;
+  }
+}
+
+export async function setNumDesksAndNames(numDesks: number, names: { id: number; name: string }[]): Promise<void> {
+  const n = Math.min(MAX_DESKS, Math.max(1, numDesks));
+  await sql`UPDATE settings SET value = ${String(n)} WHERE key = 'num_desks'`;
+  const nameMap = new Map(names.map((d) => [d.id, d.name]));
+  for (let id = 1; id <= n; id++) {
+    const name = nameMap.get(id) ?? `Стол ${id}`;
+    await sql`INSERT INTO desks (id, name) VALUES (${id}, ${name})
+      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`;
+  }
+}
+
+export async function addTeamMemberToDb(name: string, desiredDays: number): Promise<{ id: number } | null> {
+  try {
+    const r = await sql<{ id: number }>`
+      INSERT INTO team_members (name, desired_days) VALUES (${name.trim()}, ${desiredDays})
+      RETURNING id
+    `;
+    return r.rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateTeamMemberInDb(id: number, data: { name?: string; desired_days?: number }): Promise<boolean> {
+  try {
+    if (data.name !== undefined) {
+      await sql`UPDATE team_members SET name = ${data.name.trim()} WHERE id = ${id}`;
+    }
+    if (data.desired_days !== undefined) {
+      await sql`UPDATE team_members SET desired_days = ${data.desired_days} WHERE id = ${id}`;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteTeamMemberFromDb(id: number): Promise<boolean> {
+  try {
+    const r = await sql`DELETE FROM team_members WHERE id = ${id} RETURNING id`;
+    return (r.rowCount ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+export async function getAllDesksFromDb(): Promise<Desk[]> {
+  try {
+    const r = await sql<{ id: number; name: string }>`SELECT id, name FROM desks ORDER BY id`;
+    return r.rows;
+  } catch {
+    return Array.from({ length: 12 }, (_, i) => ({ id: i + 1, name: `Стол ${i + 1}` }));
+  }
+}
+
 // --- Демо-режим (без БД): in-memory хранилище с заведёнными данными ---
 const demoStore = new Map<string, Booking>();
 

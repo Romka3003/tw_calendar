@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWorkWeekDates, isDateInRange } from "@/lib/date";
-import { createBooking } from "@/lib/db";
+import { createBooking, isDemoMode, getNumDesksFromDb } from "@/lib/db";
 
 function validateBookedBy(bookedBy: unknown): string | null {
   if (typeof bookedBy !== "string") return null;
@@ -23,9 +23,10 @@ export async function POST(request: NextRequest) {
     }
 
     const deskIdNum = Number(deskId);
-    if (!Number.isInteger(deskIdNum) || deskIdNum < 1 || deskIdNum > 6) {
+    const maxDesks = isDemoMode() ? 6 : await getNumDesksFromDb();
+    if (!Number.isInteger(deskIdNum) || deskIdNum < 1 || deskIdNum > maxDesks) {
       return NextResponse.json(
-        { error: "deskId должен быть от 1 до 6" },
+        { error: `deskId должен быть от 1 до ${maxDesks}` },
         { status: 400 }
       );
     }

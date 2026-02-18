@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWorkWeekDates } from "@/lib/date";
-import { DESKS, getBookingsForDates, isDemoMode } from "@/lib/db";
+import {
+  DESKS,
+  getBookingsForDates,
+  isDemoMode,
+  getDesksFromDb,
+  getTeamMembersFromDb,
+} from "@/lib/db";
 import { TEAM_MEMBERS, getBookedCountForMember } from "@/lib/team";
 
 export const dynamic = "force-dynamic";
@@ -24,17 +30,24 @@ export async function GET(request: NextRequest) {
       booked_by: b.booked_by,
       note: b.note,
     }));
-    const teamMembers = TEAM_MEMBERS.map((m) => ({
+
+    const demo = isDemoMode();
+    const desks = demo ? DESKS : await getDesksFromDb();
+    const teamRows = demo
+      ? TEAM_MEMBERS.map((m) => ({ name: m.name, desired_days: m.desiredDays }))
+      : await getTeamMembersFromDb();
+    const teamMembers = teamRows.map((m) => ({
       name: m.name,
-      desiredDays: m.desiredDays,
+      desiredDays: m.desired_days,
       bookedCount: getBookedCountForMember(m.name, bookings),
     }));
+
     return NextResponse.json({
       dates,
-      desks: DESKS,
+      desks,
       bookings: bookingsList,
       teamMembers,
-      demo: isDemoMode(),
+      demo,
     });
   } catch (e) {
     console.error("GET /api/week", e);
