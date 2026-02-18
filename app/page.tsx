@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { DeskWeekGrid, type BookingEntry } from "@/components/DeskWeekGrid";
 import { TeamSidebar } from "@/components/TeamSidebar";
-import Link from "next/link";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 type TeamMemberRow = {
@@ -28,8 +27,8 @@ export default function Home() {
   const tzOffsetMinutes =
     typeof window !== "undefined" ? new Date().getTimezoneOffset() : 0;
 
-  const fetchWeek = useCallback(async () => {
-    setLoading(true);
+  const fetchWeek = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(
         `/api/week?tzOffsetMinutes=${encodeURIComponent(tzOffsetMinutes)}`,
@@ -39,9 +38,9 @@ export default function Home() {
       const data: WeekData = await res.json();
       setWeekData(data);
     } catch {
-      setMessage({ type: "err", text: "Не удалось загрузить данные" });
+      if (!silent) setMessage({ type: "err", text: "Не удалось загрузить данные" });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [tzOffsetMinutes]);
 
@@ -70,17 +69,17 @@ export default function Home() {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         showMessage("ok", "Забронировано");
-        fetchWeek();
+        fetchWeek(true);
       } else if (res.status === 409) {
         showMessage("err", "Уже занято");
-        fetchWeek();
+        fetchWeek(true);
       } else {
         showMessage("err", data.error || "Ошибка");
-        fetchWeek();
+        fetchWeek(true);
       }
     } catch {
       showMessage("err", "Ошибка сети");
-      fetchWeek();
+      fetchWeek(true);
     }
   };
 
@@ -94,14 +93,14 @@ export default function Home() {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         showMessage("ok", "Бронь снята");
-        fetchWeek();
+        fetchWeek(true);
       } else {
         showMessage("err", data.error || "Ошибка");
-        fetchWeek();
+        fetchWeek(true);
       }
     } catch {
       showMessage("err", "Ошибка сети");
-      fetchWeek();
+      fetchWeek(true);
     }
   };
 
@@ -123,12 +122,6 @@ export default function Home() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              href="/admin"
-              className="text-sm text-[var(--vas3k-text)] underline hover:no-underline"
-            >
-              Настройки
-            </Link>
             <ThemeSwitcher />
           </div>
         </header>
